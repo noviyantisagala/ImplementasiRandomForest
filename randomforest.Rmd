@@ -1,0 +1,167 @@
+# 0. Load library
+```{r}
+library(psych) #describe
+library(caTools) #divide train and test
+library(ggplot2) #plotting
+#library(e1071) for naive bayes method
+library(caret)
+library(rpart)
+library(rpart.plot) #plotting
+library(randomForest) #modelling
+```
+
+
+# 1. Extract, Transform, Load (ETL)
+## 1.1. Load data
+
+```{r}
+df <- read.csv("readingskill.csv")
+head(df)
+```
+
+## 1.2. Data Dictionary - feature, target, independent
+
+| nomor | nama_fitur    | tipe_data | keterangan                                       | Jenis       | Proses        |
+|-------|---------------|-----------|--------------------------------------------------|-------------|---------------|
+| 1     | X             | Integer   | nomor urut                                       | Independent | Dibuang       |
+| 2     | nativeSpeaker | Factorial | native means mampu berbahasa inggris sejak lahir | Target      | dipertahankan |
+| 3     | age           | Integer   | Kelas                                            | Independent | dipertahankan |
+| 4     | shoeSize      | Double    | ukuran sepatu                                    | Independent | dipertahankan |
+| 5     | Score         | Double    | nilai bahasa inggris                             | Independent | Dipertahankan |
+
+# 2. Feature engineering
+## 2.1. Feature engineering
+### 2.1.1. Remove features that not needed
+
+```{r}
+df$X <- NULL
+head(df)
+
+```
+
+
+### 2.1.2. Add features if needed
+
+```{r}
+df$NativeOrNot <- ifelse(df$nativeSpeaker == 'yes', 1, 0)
+head(df)
+```
+```{r}
+df$nativeSpeaker <- NULL
+head(df)
+```
+
+
+## 2.2. Check if there are NULL value
+
+```{r}
+colSums(is.na(df))
+```
+
+
+### 2.2.1 Imputing process (if there's NULL)
+Cara imputing adalah:
+1. Hapus data dengan `complete.cases()` jika jumlah data kosong tidak terlalu banyak;
+2. Ganti data dengan `mean()` jika datanya angka dan **tidak** ada _outlier_;
+3. Ganti data dengan `median()` jika datanya angka dan ada _outlier_;
+4. Ganti data dengan modus jika datanya `factorial` atau `string` dan distribusi variasi datanya beragam. Fungsi `table()` dapat membantu modus dari data;
+5. Ganti dengan angka acak jika datanya `factorial` atau `string` dan distribusi variasi datanya imbang.
+
+Uji lagi apakah ada data kosong?
+
+## 2.3. Check Unary data
+
+```{r}
+apply(df, 2, max) - apply(df, 2, min)
+```
+dari hasil diatas ditemukan bahwa datanya bervariasi
+
+# 3. Exploratory Data Analysis (EDA)
+
+## 3.1. Descriptive Statistics
+Gunakan fungsi summary(), correlation cor(),  dan describe()
+
+```{r}
+summary(df)
+```
+memeriksa distribusi normal, liat kede
+```{r}
+cor(df)
+```
+47 % peningkatan score berpeluang menunjukkan seseorang native atau tidak
+
+cek multikolinearitas, if any, take an action (recommmendation: deleted) 
+
+```{r}
+describe(df)[11:12]
+```
+
+## 3.2. Visualisation
+Gunakan fungsi boxplot(), heatmap(), plot() dan lain sebagainya
+
+```{r}
+#plot(density(df$score, df$shoeSize, col = ifelse(df$NativeOrNot == 1, "blue", "red")))
+```
+terlihat dr plot bahwa distribusi umur normal
+
+# 4. Fitting/Model
+## 4.1 Splitting
+
+```{r}
+split <- sample.split(df$NativeOrNot, SplitRatio = 0.8)
+train <- subset(df, split == TRUE)
+test <- subset(df, split == FALSE)
+```
+
+## 4.2 Modeling
+there will be no visualization in random forest
+```{r}
+rf <- randomForest(NativeOrNot ~ age + shoeSize + score, train, method ="class")
+
+```
+
+```{r}
+
+```
+
+# 5. Model Performance
+
+## 5.1 Inferential Statistic approach
+```{r}
+kj <- test$NativeOrNot
+head(kj)
+```
+
+```{r}
+prediksi <- predict(rf, newdata =  test, type = "class")
+head(prediksi)
+```
+
+```{r}
+prediksi2 <- round(prediksi)
+head(prediksi2)
+```
+
+
+## 5.2 Visualization approach
+```{r}
+prp(rf, extra = 1, box.palette = "auto", type = 5)
+```
+ciri khas underfit, no matter how many times u run the model, the accuracy stay in low rate. set di maxdepth.
+
+ciri khas overfit, hasil run aint consistent. rangenya antara 80 hingga 90 %. set di maxdepth
+
+to minimize either underfit or overfit, set maxdepth sehingga accuracy tidak berubah lagi
+# 6. Prediction/Forecasting
+```{r}
+confusionMatrix(table(kj, prediksi2))
+
+```
+
+
+```{r}
+cek <- data.frame(age= 5, shoeSize=20, score=57)
+predict(rf, newdata = cek, type = "class")
+```
+
+# 7. Further Prescription Analysis/Recommendation
